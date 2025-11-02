@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from sqlalchemy import select, and_, or_, func
 from . import models
-from .models import Product
+from .models import Product, Order
 
 def get_product(db: Session, product_id: int) -> models.Product | None:
     return db.scalar(select(models.Product).where(models.Product.id == product_id))
@@ -107,6 +107,36 @@ def list_products(
     items = list(db.scalars(stmt))
     # total（簡易做法：重跑 count）
     count_stmt = select(func.count()).select_from(Product)
+    if conds:
+        count_stmt = count_stmt.where(and_(*conds))
+    total = db.scalar(count_stmt) or 0
+    return total, items
+
+def list_orders(
+    db: Session,
+    buyer_id: int | None = None,
+    seller_id: int | None = None,
+    status: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+):
+    conds = []
+    if buyer_id:
+        conds.append(Order.buyer_id == buyer_id)
+    if seller_id:
+        conds.append(Order.seller_id == seller_id)
+    if status:
+        conds.append(Order.status == status)
+
+    base = select(Order, Product).join(Product, Product.id == Order.product_id)
+    if conds:
+        base = base.where(and_(*conds))
+    base = base.order_by(Order.id.desc()).limit(limit).offset(offset)
+
+    rows = db.execute(base).all()  # list[Row(Order, Product)]
+    items = [(r[0], r[1]) for r in rows]
+
+    count_stmt = select(func.count()).select_from(Order)
     if conds:
         count_stmt = count_stmt.where(and_(*conds))
     total = db.scalar(count_stmt) or 0
