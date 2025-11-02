@@ -38,3 +38,18 @@ class ProductOut(BaseModel):
 class ProductListOut(BaseModel):
     total: int
     items: List[ProductOut]
+
+class OrderOut(BaseModel):
+    id: int
+    buyer_id: int
+    seller_id: int
+    product_id: int
+    status: Literal["pending","confirmed","completed","cancelled"]
+    # 附帶商品資訊（精簡）
+    product_title: Optional[str] = None
+    product_price: Optional[float] = None
+    product_cover: Optional[str] = None
+
+class OrderListOut(BaseModel):
+    total: int
+    items: List[OrderOut]
