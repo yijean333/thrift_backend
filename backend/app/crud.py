@@ -141,3 +141,28 @@ def list_orders(
         count_stmt = count_stmt.where(and_(*conds))
     total = db.scalar(count_stmt) or 0
     return total, items
+
+def create_product(
+    db: Session,
+    seller_id: int,
+    title: str,
+    description: str | None,
+    price: float,
+    status: str = "onsale",
+    cover_image_url: str | None = None,
+) -> Product:
+    if status not in ("onsale", "sold", "archived"):
+        raise HTTPException(400, "invalid status")
+
+    p = Product(
+        seller_id=seller_id,
+        title=title,
+        description=description,
+        price=price,
+        status=status,
+        cover_image_url=cover_image_url,
+    )
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    return p
