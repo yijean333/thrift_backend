@@ -1,70 +1,61 @@
-from pydantic import BaseModel, conint, Field, validator
+from pydantic import BaseModel, Field, validator
 from typing import Optional, Literal, List
 
-OrderStatus = Literal['pending','confirmed','completed','cancelled']
+# Product I/O
+class ProductCreate(BaseModel):
+    seller_id: int = Field(..., ge=1)
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+    price: float = Field(..., gt=0)
+    category: Optional[str] = Field(None, max_length=50)
+    image_url: Optional[str] = None
+    status: Literal["available","sold","under_review"] = "available"
 
-class OrderCreateIn(BaseModel):
-    buyer_id: int
-    product_id: int
+    @validator("name")
+    def _strip_name(cls, v):
+        v = v.strip()
+        if not v: raise ValueError("name cannot be empty")
+        return v
 
-class OrderConfirmIn(BaseModel):
-    order_id: int
-    seller_id: int   # 驗證是該商品賣家在確認
-
-class OrderFinishIn(BaseModel):
-    order_id: int
-    by_user_id: int  # 允許買/賣任一方完成（之後可改策略）
-
-class OrderCancelIn(BaseModel):
-    order_id: int
-    by_user_id: int  # 誰提出取消都先允許（之後可加限制）
-
-class OrderOut(BaseModel):
-    id: int
-    buyer_id: int
-    seller_id: int
-    product_id: int
-    status: OrderStatus
+    @validator("image_url")
+    def _clean_url(cls, v):
+        if v is None: return None
+        v = v.strip()
+        if not v: return None
+        if len(v) > 1024: raise ValueError("image_url too long (>1024)")
+        if not (v.startswith("http://") or v.startswith("https://")):
+            raise ValueError("image_url must start with http:// or https://")
+        return v
 
 class ProductOut(BaseModel):
-    id: int
+    product_id: int
     seller_id: int
-    title: str
+    name: str
     description: Optional[str] = None
     price: float
-    status: Literal["onsale","sold","archived"]
-    cover_image_url: Optional[str] = None
+    category: Optional[str] = None
+    image_url: Optional[str] = None
+    status: Literal["available","sold","under_review"]
 
 class ProductListOut(BaseModel):
     total: int
     items: List[ProductOut]
 
-class OrderOut(BaseModel):
-    id: int
+# Order I/O
+class OrderCreate(BaseModel):
     buyer_id: int
-    seller_id: int
     product_id: int
-    status: Literal["pending","confirmed","completed","cancelled"]
-    # 附帶商品資訊（精簡）
-    product_title: Optional[str] = None
+
+class OrderOut(BaseModel):
+    order_id: int
+    buyer_id: int
+    product_id: int
+    order_status: Literal["pending","paid","shipped","completed","cancelled"]
+    # 簡要商品資訊
+    product_name: Optional[str] = None
     product_price: Optional[float] = None
-    product_cover: Optional[str] = None
+    product_image: Optional[str] = None
 
 class OrderListOut(BaseModel):
     total: int
     items: List[OrderOut]
-
-class ProductCreate(BaseModel):
-    seller_id: int = Field(..., ge=1)
-    title: str = Field(..., min_length=1, max_length=120)
-    description: Optional[str] = Field(None, max_length=2000)
-    price: float = Field(..., gt=0)
-    status: Literal["onsale", "sold", "archived"] = "onsale"
-    cover_image_url: Optional[str] = None
-
-    @validator("title")
-    def strip_title(cls, v):
-        v2 = v.strip()
-        if not v2:
-            raise ValueError("title cannot be empty")
-        return v2
